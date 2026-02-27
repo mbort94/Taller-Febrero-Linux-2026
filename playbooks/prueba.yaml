@@ -1,0 +1,70 @@
+---
+- name: Cliente NFS con automount (Ubuntu 24.04)
+  hosts: nfs_clients
+  become: true
+  vars:
+    nfs_server: "192.0..10"         # cambia por tu servidor NFS
+    nfs_export: "/srv/nfs/shared"    # cambia por el export del servidor
+    automount_base: "/mnt"
+    autofs_master_fragment: "/etc/auto.master.d/nfs.autofs"
+    autofs_map_file: "/etc/auto.nfs"
+    autofs_timeout: 60        
+    nfs_extra_opts: "rw,soft,intr"
+
+  tasks:
+    - name: Instalar paquetes requeridos
+      ansible.builtin.apt:
+        name:
+          - autofs
+          - nfs-common
+          - python3
+        state: present
+        update_cache: true
+
+    - name: Asegurar directorio de fragmentos de autofs
+      ansible.builtin.file:
+        path: /etc/auto.master.d
+        state: directory
+        owner: root
+        group: root
+        mode: '0755'
+
+    - name: Configurar fragmento de auto.master para NFS
+      ansible.builtin.copy:
+        dest: "{{ autofs_master_fragment }}"
+        owner: root
+        group: root
+        mode: '0644'
+        content: |
+          {{ automount_base }} {{ autofs_map_file }} --timeout={{ autofs_timeout }}
+      notify: Reiniciar autofs
+
+    - name: Configurar mapa de autofs (indirecto) para /mnt/shared
+      ansible.builtin.copy:
+        dest: "{{ autofs_map_file }}"
+        owner: root
+        group: root
+        mode: '0644'
+        content: |
+          shared -fstype=nfs4,{{ nfs_extra_opts }} {{ nfs_server }}:{{ nfs_export }}
+      notify: Reiniciar autofs
+
+    - name: Asegurar base de automontaje existe
+      ansible.builtin.file:
+        path: "{{ automount_base }}"
+        state: directory
+        owner: root
+        group: root
+        mode: '0755'
+
+    - name: Habilitar y arrancar autofs
+      ansible.builtin.service:
+        name: autofs
+        state: started
+        enabled: true
+
+  handlers:
+    - name: Reiniciar autofs
+      ansible.builtin.service:
+        name: autofs
+        state: restartedcls

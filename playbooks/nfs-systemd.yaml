@@ -1,0 +1,41 @@
+---
+- hosts: ubuntu
+  become: true
+
+  tasks:
+    - name: instalar python3 si no está presente
+      ansible.builtin.apt:
+        name: python3
+        state: present
+        update_cache: true
+
+    - name: crear unit file para webserver
+      ansible.builtin.copy:
+        dest: /etc/systemd/system/shared-http.service
+        owner: root
+        group: root
+        mode: '0644'
+        content: |
+          [Unit]
+          Description=Python Webserver serving /mnt/shared
+          After=network.target autofs.service
+          Requires=network.target autofs.service
+
+          [Service]
+          ExecStart=/usr/bin/python3 -m http.server 8080 --directory /mnt/shared
+          Restart=always
+          RestartSec=5
+          User=nobody
+          WorkingDirectory=/mnt/shared
+
+          [Install]
+          WantedBy=multi-user.target
+
+    - name: recargar systemd para leer el nuevo servicio
+      ansible.builtin.command: systemctl daemon-reload
+
+    - name: habilitar y arrancar el servicio shared-http
+      ansible.builtin.service:
+        name: shared-http
+        state: started
+        enabled: true

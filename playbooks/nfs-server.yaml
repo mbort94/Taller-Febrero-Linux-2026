@@ -3,43 +3,43 @@
   become: true
 
   tasks:
-    - name: 1. Reinstalar paquetes con dnf
+    - name: Reinstalar paquetes con dnf
       ansible.builtin.dnf:
         name:
           - nfs-utils
           - rpcbind
         state: present
 
-    - name: 2. Buscar nombres de servicios instalados
+    - name:  Buscar nombres de servicios instalados
       ansible.builtin.shell: "systemctl list-unit-files --type=service | grep -E 'nfs|rpcbind'"
       register: service_list
       changed_when: false
 
-    - name: 3. Mostrar que servicios encontro
+    - name:  Mostrar que servicios encontro
       ansible.builtin.debug:
         var: service_list.stdout_lines
 
-    - name: 4. Intentar iniciar nfs-utils de forma genérica
+    - name:  Intentar iniciar nfs-utils de forma genérica
       ansible.builtin.shell: |
         systemctl daemon-reload
         systemctl enable nfs-server
         systemctl start nfs-server
       ignore_errors: yes
 
-    - name: 5. Crear carpeta y configurar exports
+    - name:  Crear carpeta y configurar exports
       ansible.builtin.file:
         path: /srv/nfs/shared
         state: directory
         mode: '0777'
 
-    - name: 6. Configurar exports
+    - name:  Configurar exports
       ansible.builtin.lineinfile:
         path: /etc/exports
         line: "/srv/nfs/shared 192.168.10.0/24(rw,sync,no_root_squash)"
         state: present
       notify: exportar
 
-    - name: 7. Abrir Firewall
+    - name: Abrir Firewall
       ansible.builtin.shell: |
         firewall-cmd --permanent --add-service=nfs
         firewall-cmd --permanent --add-service=rpc-bind
@@ -56,6 +56,12 @@
       loop:
         - 2049/tcp
         - 2049/udp
+    - name: Copy test gile to server
+      ansible.builtin.template:
+        src: ../templates/README-NFS.J2
+        dest: /srv/nfs/shared/README-NFS.TXT
+        owner: nobody
+        mode: '0644'
 
   handlers:
     - name: exportar

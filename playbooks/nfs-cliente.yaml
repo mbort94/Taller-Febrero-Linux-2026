@@ -1,0 +1,43 @@
+---
+- hosts: ubuntu
+  become: true
+
+  tasks:
+    - name: install required packages for automount
+      ansible.builtin.apt:
+        name: "{{ item }}"
+        state: present
+        update_cache: true
+      loop:
+        - autofs
+        - nfs-common
+        - python3
+
+    - name: add nfs.autofs to auto.master
+      ansible.builtin.copy:
+        src: ../files/nfs.autofs
+        dest: /etc/auto.master.d/nfs.autofs
+        owner: root
+        mode: '0644'
+      notify: restart autofs
+
+    - name: add nfs mount map file
+      ansible.builtin.copy:
+        src: ../files/auto.nfs
+        dest: /etc/auto.nfs
+        owner: root
+        mode: '0644'
+      notify: restart autofs
+
+    - name: autofs service started
+      ansible.builtin.service:
+        name: autofs
+        state: started
+        enabled: true
+
+  handlers:
+    - name: restart autofs
+      ansible.builtin.service:
+        name: autofs
+        state: restarted
+
