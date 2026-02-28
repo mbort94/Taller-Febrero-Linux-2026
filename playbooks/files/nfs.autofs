@@ -1,1 +1,1 @@
-/mnt    /etc/auto.nfs
+/mnt    /etc/auto.nfs --timeout={{ autofs_timeout }}
